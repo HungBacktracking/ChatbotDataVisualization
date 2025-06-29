@@ -12,9 +12,7 @@ class ApplicationContainer(containers.DeclarativeContainer):
     
     wiring_config = containers.WiringConfiguration(
         modules=[
-            "app.api.endpoints.user",
-            "app.api.endpoints.chat",
-            "app.core.dependencies",
+            "app.api.endpoints.chat"
         ]
     )
 
@@ -31,21 +29,21 @@ class ApplicationContainer(containers.DeclarativeContainer):
         config=config,
     )
 
-    chatbot = providers.Container(
-        ChatbotContainer,
-        config=config,
-        database=database,
-        AI=AI
-    )
+    # chatbot = providers.Container(
+    #     ChatbotContainer,
+    #     config=config,
+    #     database=database,
+    #     AI=AI
+    # )
 
     repositories = providers.Container(
         RepositoryContainer,
-        database=database
+        # database=database
     )
 
     services = providers.Container(
         ServiceContainer,
         config=config,
         repos=repositories,
-        chat_engine=chatbot.chat_engine
+        # chat_engine=chatbot.chat_engine
     )

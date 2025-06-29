@@ -46,7 +46,6 @@ class AppCreator:
         self.container = ApplicationContainer()
 
         self.db = self.container.database().db()
-        self.mongo = self.container.database().mongo_db()
 
         if configs.BACKEND_CORS_ORIGINS:
             self.app.add_middleware(

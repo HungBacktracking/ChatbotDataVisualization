@@ -46,29 +46,11 @@ class ChatbotContainer(containers.DeclarativeContainer):
         mode="hybrid",
     )
 
-    # Graph retrievers
-    graph_retriever = providers.Singleton(
-        Neo4jGraphRetriever,
-        neo4j_driver=neo4j_driver,
-        top_k=20
-    )
-
     # Reranker
     reranker = providers.Singleton(
         CohereRerank,
         api_key=config.COHERE_API_TOKEN,
         top_n=10
-    )
-
-    # Hybrid retrievers
-    retriever = providers.Singleton(
-        HybridRetriever,
-        embedding_retriever=embedding_retriever,
-        graph_retriever=graph_retriever,
-        reranker=reranker,
-        embedding_weight=0.6,
-        graph_weight=0.4,
-        top_k=15
     )
 
     # Helper components
@@ -79,7 +61,7 @@ class ChatbotContainer(containers.DeclarativeContainer):
     chat_engine = providers.Factory(
         ChatEngine,
         llm=llm,
-        retriever=retriever,
+        retriever=embedding_retriever,
         embedding_model=embed_model,
         chat_store=chat_store,
         checker=small_talk_checker

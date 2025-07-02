@@ -1,8 +1,4 @@
-from uuid import UUID
-
 from app.chatbot.chat_engine import ChatEngine
-from app.exceptions.custom_error import CustomError
-from app.repository.chatbot_repository import ChatbotRepository
 from app.schema.chat_schema import MessageResponse
 from app.services.base_service import BaseService
 
@@ -29,7 +25,7 @@ async def async_generator_adapter(generator):
             else:
                 # If it's not iterable at all, yield it as a single item
                 yield generator
-        except TypeError as e:
+        except TypeError:
             # If it's not iterable at all, yield it as a single item
             yield generator
         except Exception as e:
@@ -40,28 +36,19 @@ async def async_generator_adapter(generator):
 class ChatbotService(BaseService):
     def __init__(
         self,
-        chatbot_repository: ChatbotRepository,
         chat_engine: ChatEngine
     ):
-        self.chatbot_repo = chatbot_repository
         self.chat_engine = chat_engine
         super().__init__()
 
 
 
-    async def generate_message_stream(self, session_id: str, message: str, user_id: str):
+    async def generate_message_stream(self, session_id: str, message: str, history: list[MessageResponse]):
         try:
-            self.verify_user(user_id)
 
-            session = await self.chatbot_repo.find_session(session_id, user_id)
-            if not session:
-                yield f"ERROR: Session not found or doesn't belong to the user"
-                return
-
-            history = await self.get_messages(user_id, session_id)
+            history = history or []
             history = [message.model_dump() for message in history]
-
-            self.chat_engine.compose(resume_text, history, session_id)
+            self.chat_engine.compose(session_id, history, message)
 
             full_response = ""
             try:
@@ -85,12 +72,6 @@ class ChatbotService(BaseService):
                 yield error_msg
                 return
 
-            if full_response:
-                try:
-                    i = 1 #dummy
-                except Exception as e:
-                    print(f"Error saving assistant message: {e}")
-                    # Don't yield error to user since response was already sent
         except Exception as e:
             error_msg = f"ERROR: {str(e)}"
             print(error_msg)

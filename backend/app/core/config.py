@@ -36,43 +36,6 @@ class Configs(BaseSettings):
 
     BACKEND_CORS_ORIGINS: List[str] = ["*"]
 
-    DB: str = os.getenv("DB", "postgresql")
-    DB_USER: str = os.getenv("DB_USER")
-    DB_PASSWORD: str = os.getenv("DB_PASSWORD")
-    DB_HOST: str = os.getenv("DB_HOST")
-    DB_PORT: str = os.getenv("DB_PORT", "5432")
-    DB_ENGINE: str = os.getenv("DB_ENGINE", "postgresql")
-
-    DATABASE_URI_FORMAT: str = "{db_engine}://{user}:{password}@{host}:{port}/{database}"
-
-    DATABASE_URI: str = "{db_engine}://{user}:{password}@{host}:{port}/{database}".format(
-        db_engine=DB_ENGINE,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        host=DB_HOST,
-        port=DB_PORT,
-        database=ENV_DATABASE_MAPPER[ENV]
-    )
-
-    REPLICA_DB_USER: str = os.getenv("REPLICA_DB_USER", DB_USER)
-    REPLICA_DB_PASSWORD: str = os.getenv("REPLICA_DB_PASSWORD", DB_PASSWORD)
-    REPLICA_DB_HOST: str = os.getenv("REPLICA_DB_HOST")
-    REPLICA_DB_PORT: str = os.getenv("REPLICA_DB_PORT", "5432")
-    REPLICA_DB_ENGINE: str = os.getenv("REPLICA_DB_ENGINE", DB_ENGINE)
-
-    REPLICA_DATABASE_URI: str = "{db_engine}://{user}:{password}@{host}:{port}/{database}".format(
-        db_engine=REPLICA_DB_ENGINE,
-        user=REPLICA_DB_USER,
-        password=REPLICA_DB_PASSWORD,
-        host=REPLICA_DB_HOST if REPLICA_DB_HOST else DB_HOST,
-        port=REPLICA_DB_PORT,
-        database=ENV_DATABASE_MAPPER[ENV]
-    )
-
-    MONGO_DB_URI: str = os.getenv("MONGO_DB_URI")
-    MONGO_DB_NAME: str = os.getenv("MONGO_DB_NAME")
-
-
     QDRANT_URL: str = os.getenv("QDRANT_URL")
     QDRANT_API_TOKEN: str = os.getenv("QDRANT_API_TOKEN")
     QDRANT_COLLECTION_NAME: str = os.getenv("QDRANT_COLLECTION_NAME")
@@ -82,20 +45,14 @@ class Configs(BaseSettings):
     GEMINI_MODEL_NAME: str = os.getenv("GEMINI_MODEL_NAME", "gemini-pro")
     GEMINI_TOKEN: str = os.getenv("GEMINI_TOKEN")
     MAX_TOKENS: int = int(os.getenv("MAX_TOKENS", 10240))
-    TEMPERATURE: float = float(os.getenv("TEMPERATURE", 0.7))
-    EMBEDDING_MODEL_NAME: str = os.getenv("EMBEDDING_MODEL_NAME", "BAAI/bge-large-en-v1.5")
+    TEMPERATURE: float = float(os.getenv("TEMPERATURE", 0.6))
+    EMBEDDING_MODEL_NAME: str = os.getenv("EMBEDDING_MODEL_NAME", "intfloat/multilingual-e5-large")
     SCORING_MODEL_NAME: str = os.getenv("SCORING_MODEL_NAME", "all-mpnet-base-v2")
 
     TOP_K: int = int(os.getenv("TOP_K", 15))
-    TOKEN_LIMIT: int = int(os.getenv("TOKEN_LIMIT", 2048))
+    TOKEN_LIMIT: int = int(os.getenv("TOKEN_LIMIT", 20048))
 
     COHERE_API_TOKEN: str = os.getenv("COHERE_API_TOKEN")
-    
-    AWS_ACCESS_KEY_ID: str = os.getenv("AWS_ACCESS_KEY_ID")
-    AWS_SECRET_KEY: str = os.getenv("AWS_SECRET_ACCESS_KEY")
-    AWS_REGION: str = os.getenv("AWS_REGION")
-    AWS_S3_BUCKET_NAME: str = os.getenv("AWS_S3_BUCKET_NAME")
-    AWS_S3_BUCKET_URL: str = os.getenv("AWS_S3_BUCKET_URL")
 
     PAGE: int = 1
     PAGE_SIZE: int = 20

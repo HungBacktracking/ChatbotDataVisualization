@@ -12,7 +12,7 @@ from app.exceptions.exception_handlers import register_exception_handlers
 from app.util.class_object import singleton
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
@@ -27,12 +27,7 @@ class AppCreator:
         @asynccontextmanager
         async def lifespan(app: FastAPI):
             logging.info("Starting application...")
-            self.container.init_resources()
-
             yield
-
-            logging.info("Shutting down application...")
-            self.container.shutdown_resources()
             logging.info("Application shutdown complete")
 
         self.app = FastAPI(
@@ -42,10 +37,7 @@ class AppCreator:
             lifespan=lifespan,
         )
         register_exception_handlers(self.app)
-
         self.container = ApplicationContainer()
-
-        self.db = self.container.database().db()
 
         if configs.BACKEND_CORS_ORIGINS:
             self.app.add_middleware(
@@ -65,5 +57,4 @@ class AppCreator:
 
 app_creator = AppCreator()
 app = app_creator.app
-db = app_creator.db
 container = app_creator.container

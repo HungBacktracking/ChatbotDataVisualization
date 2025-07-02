@@ -3,38 +3,39 @@ from llama_index.core import Settings
 from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core.storage.chat_store import SimpleChatStore
 from llama_index.core.chat_engine import (
-    CondensePlusContextChatEngine,
-    SimpleChatEngine,
+    CondensePlusContextChatEngine
 )
-from llama_index.core.tools import RetrieverTool
-from llama_index.core.retrievers import RouterRetriever
-from llama_index.core.selectors import LLMSingleSelector
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from llama_index.core.llms import ChatMessage
+
 import nest_asyncio
 import json
 import asyncio
 
 nest_asyncio.apply()
 
+import logging
+
+# Bật logging toàn cục mức INFO
+logging.basicConfig(level=logging.DEBUG)
+
+# Chuyển logger của retriever sang DEBUG để nó in chi tiết các bước retrieve
+logging.getLogger("llama_index.retrievers").setLevel(logging.DEBUG)
+
+
 
 class ChatEngine:
     """
-    Chatbot with two RAG pipelines (job & course) plus small talk.
+    Chatbot with RAG pipelines.
     Preserves chat history across all dialogues via memory buffer.
-    Routes queries via RouterQueryEngine.
     """
 
     def __init__(
             self,
             llm,
-            embedding_model: HuggingFaceEmbedding,
-            checker,
-            job_retriever,
-            course_retriever,
+            embedding_model,
+            retriever,
             chat_store,
             token_limit: int = 20000,
-            job_collection: str = 'job_description_2',
+            collection: str = 'stats_insights',
             top_k: int = 20,
             temperature: float = 0.6,
             max_tokens: int = 10000
@@ -46,125 +47,85 @@ class ChatEngine:
         # Initialize LLM & embeddings
         self.llm = llm
         self.embedding_model = embedding_model
-        self.retrievers = {
-            "job": job_retriever,
-            "course": course_retriever
-        }
+        self.retriever = retriever
         self.chat_store = chat_store
         Settings.llm = self.llm
         Settings.embed_model = embedding_model
 
         # Setup persistent memory
-        self.checker = checker
         self.rag_engine = None
-        self.smalltalk_engine = None
         self.chat_memory = None
 
-    def compose(self, resume, memory, session_id):
+    def compose(self, session_id, memory, message):
         Settings.llm = self.llm
         Settings.embed_model = self.embedding_model
 
-        self.build_prompt(resume=resume)
-        self.build_memory(memory, session_id)
-        self.build_chat_engine(self.retrievers)
+        self.build_prompt(memory, message)
+        self.build_memory(session_id, memory)
+        self.build_chat_engine(self.retriever)
 
-    def build_prompt(self, resume):
-        self.resume = resume
-        self.rag_prompt = """ 
-            You are an intelligent assistant specializing in job matching, job discovery, resume analysis, and career guidance. Your objective is to help users find relevant job opportunities and assess their fit based on job descriptions and their professional background. 
-
-            You have access to:   
-            - A vector database of job descriptions and online courses (retrieved based on contextual relevance)   
-            - The user's resume or summarized professional experience   
-
-            ### Guidelines for Handling User Queries: 
-
-            1. **Understanding Intent:**   
-            - Analyze the user's query to determine whether they are seeking job recommendations, course suggestions, or roadmap guidance. 
-
-            2. **Contextual Query Rephrasing:**   
-            - Use relevant job descriptions and resume content to rephrase or clarify the user's query as a specific, standalone question. 
-
-            3. **Job Recommendations:**   
-            - If the query involves job recommendations, respond in **bullet points** with the following format: 
-            ## Data Engineer 
-
-            **Company Name:** Digital Intellect  
-            **Summary:** Role Overview: As a Data Engineer, you will collaborate closely with the client's Data Lead to design, develop, and maintain data architectures that enhance their data platforms.... 
-            **URL:** https://www.vietnamworks.com/data-engineer--1906728-jv?source=searchResults&searchType=2&placement=1906728&sortBy=date 
-
-            4. **Course Recommendations or Roadmaps:**   
-            - If the query involves courses or roadmaps, respond in **bullet points** with the following format: 
-
-            ## {Course Title} 
-
-            **Skills:** {Skills Learned}   
-            **What You Will Learn:** {What the user will learn here}   
-            **Description:** {Course Description}   
-            **URL:** {Course URL} 
-
-            5. **Response Formatting:**   
-            - Ensure all responses are structured in **Markdown format** with appropriate headings for clarity and organization. 
-            - Job and course Title MUST be heading like this: ## Job Title 
+    def build_prompt(self, memory, message):
+        self.rag_prompt = """
+            Bạn là một chuyên gia phân tích dữ liệu thương mại điện tử, thành thạo thống kê và đưa ra những insight kinh doanh cho nền tảng TIKI.  
+            Bạn có quyền truy cập vào:
+              - Cơ sở dữ liệu vector chứa các thống kê tổng hợp và chỉ số thô thu thập từ TIKI:  
+                giá, loại giao hàng (dropship / seller_delivery / tiki_delivery), thương hiệu, số lượt đánh giá, điểm đánh giá trung bình, số lượt yêu thích, cờ mua trả sau, số lượng hình ảnh, cờ có video, số lượng đã bán, v.v.  
+              - Khả năng tính toán các chỉ số ngay lập tức (phân phối, tương quan, xu hướng, so sánh) từ những dữ liệu này.
+    
+            ### Khi có yêu cầu từ người dùng:
+            1. **Làm rõ mục đích:**  
+               - Họ muốn tóm tắt (“Top 5 thương hiệu bán chạy nhất”), phân tích phân phối (“Phân phối giá cho sản phẩm dropship”), tìm tương quan (“Mua trả sau ảnh hưởng thế nào đến số lượng bán?”), phân tích xu hướng (“Doanh số theo tuần”), hay phát hiện bất thường?
+            2. **Chuyển ngữ & xác định phạm vi:**  
+               - Biến yêu cầu chung chung thành nhiệm vụ phân tích cụ thể (“Cho tôi top 10 thương hiệu theo tổng số lượng đã bán trong Q2 2025”).
+            3. **Truy xuất thống kê liên quan:**  
+               - Lấy các chỉ số tổng hợp hoặc dữ liệu gốc đã lưu từ vector store.
+            4. **Tính toán bổ sung nếu cần:**  
+               - Ví dụ: phần trăm thay đổi, tốc độ tăng trưởng, hệ số tương quan, bảng pivot.
+            5. **Sinh insight:**  
+               - Tóm tắt kết quả chính dưới dạng **gạch đầu dòng**, nhấn mạnh các biến động, điểm bất thường, hoặc hàm ý kinh doanh.
+            6. **Minh họa (nếu yêu cầu):**  
+               - Gợi ý hoặc mô tả loại biểu đồ phù hợp (histogram cho phân phối, line chart cho xu hướng, scatter plot cho tương quan) và cung cấp dữ liệu thô để vẽ.
+            7. **Định dạng trả lời:**  
+               - Sử dụng **Markdown** với các tiêu đề rõ ràng (`### Tóm tắt`, `### Insight`, `### Khuyến nghị`).  
+               - Trình bày bảng số liệu dưới dạng bảng Markdown.  
+               - Khi liệt kê danh sách (thương hiệu, loại giao hàng, sản phẩm), dùng gạch đầu dòng.
+    
+            Nếu bạn không biết hoặc không thể tính toán được, hãy trả lời “Tôi không biết.”
         """
 
-        self.context_prompt = f""" 
-        USER RESUME: 
-        {resume} 
+        self.context_prompt = """  
+            Trợ lý chỉ sử dụng các số liệu đã được cung cấp ở dưới để trả lời.  
+            Nếu thiếu dữ liệu hoặc chỉ số cần thiết trong context, hãy nói “Tôi không biết.”
+            
+            Dưới đây là những dữ liệu, tài liệu liên quan có thể cần thiết cho ngữ cảnh: 
 
-        The following is a friendly conversation between a user and an AI assistant. 
-        The assistant is talkative and provides lots of specific details from its context. 
-        If the assistant does not know the answer to a question, it truthfully says it 
-        does not know. 
-
-        Here are the relevant documents for the context: 
-
-        {{context_str}} 
-
-        Instruction: Based on the above documents, provide a detailed answer for the user question below. 
-        Answer "don't know" if not present in the document. 
+            {{context_str}} 
+            
+            Yêu cầu: Dựa trên các số liệu được cung cấp, hãy trả lời câu hỏi của người dùng dưới đây một cách rõ ràng và có cấu trúc.
         """
 
-        self.smalltalk_prompt = f'You are a helpful assistant. and here is user resume: \n {resume}'
+        self.condense_prompt = f"""
+            Bạn là một trợ lý AI am hiểu thương mại điện tử. Cho đoạn hội thoại dưới đây và tin nhắn mới nhất,
+            hãy chuyển thành một câu hỏi độc lập, rõ ràng, **bằng tiếng Việt**:
+            ===
+            Hội thoại: {memory}
+            Tin nhắn mới: {message}
+            ===
+            Hãy chỉ trả về câu hỏi rút gọn.
+        """
 
-    def build_tool(self, retriever, tool_name, description):
-        tool = RetrieverTool.from_defaults(
-            retriever=retriever,
-            name=tool_name,
-            description=description
-        )
-        return tool
 
-    def build_chat_engine(self, retrievers):
-        job_tool = self.build_tool(retriever=retrievers["job"], tool_name="job retriever tool",
-                                   description="Useful for retrieving job-related context")
-        course_tool = self.build_tool(retriever=retrievers["course"], tool_name="course retriever tool",
-                                      description="Useful for retrieving Handles course and learning path queries. context")
-
-        main_retriever = RouterRetriever(
-            selector=LLMSingleSelector.from_defaults(llm=self.llm),
-            retriever_tools=[
-                job_tool,
-                course_tool
-            ]
-        )
-
+    def build_chat_engine(self, retriever):
         self.rag_engine = CondensePlusContextChatEngine(
-            retriever=main_retriever,
+            retriever=retriever,
             llm=self.llm,
             system_prompt=self.rag_prompt,
             context_prompt=self.context_prompt,
+            condense_prompt=self.condense_prompt,
             memory=self.chat_memory,
         )
 
-        prefix = [ChatMessage(role='system', content=self.smalltalk_prompt)]
-        self.smalltalk_engine = SimpleChatEngine(
-            llm=self.llm,
-            memory=self.chat_memory,
-            prefix_messages=prefix,
-        )
-
-    def build_memory(self, memory, session_id):
+    def build_memory(self, session_id, memory):
         self.memory = memory
         self.session_id = session_id
         # load if exists
@@ -176,13 +137,11 @@ class ChatEngine:
                 )
             except Exception as e:
                 print(f"Error initializing chat store from memory: {e}")
-                # Initialize empty chat store if loading fails
-                self.chat_store = SimpleChatStore()
 
         self.chat_memory = ChatMemoryBuffer.from_defaults(
             token_limit=self.token_limit,
             chat_store=self.chat_store,
-            chat_store_key=self.session_id,
+            chat_store_key=self.session_id
         )
 
     def process_history(self):
@@ -209,15 +168,12 @@ class ChatEngine:
 
 
     async def stream_chat(self, user_input: str):
-        if not self.rag_engine or not self.smalltalk_engine:
+        if not self.rag_engine:
             yield "ERROR: Chat engine not properly initialized."
             return
 
         try:
-            if self.checker.is_small_talk(user_input):
-                response = self.smalltalk_engine.stream_chat(user_input)
-            else:
-                response = self.rag_engine.stream_chat(user_input)
+            response = self.rag_engine.stream_chat(user_input)
 
             if response is None:
                 yield "ERROR: Failed to get streaming response"
@@ -226,7 +182,7 @@ class ChatEngine:
             async for chunk in self.process_streaming_response(response):
                 if chunk:
                     yield chunk
-                
+
         except Exception as e:
             print(f"Error in stream_chat: {str(e)}")
             yield f"ERROR: {str(e)}"

@@ -14,7 +14,6 @@ router = APIRouter(prefix="/chat", tags=["Chatbot"])
 @router.post("/generate-response")
 @inject
 async def generate_response(
-    session_id: str,
     data: MessageCreate,
     service: ChatbotService = Depends(Provide[ApplicationContainer.services.chatbot_service])
 ):
@@ -22,7 +21,7 @@ async def generate_response(
         try:
             yield "event: start\ndata: \n\n"
             
-            async for chunk in service.generate_message_stream(session_id, data.content):
+            async for chunk in service.generate_message_stream(data.session_id, data.content, data.history):
                 if chunk:
                     # Handle error messages with ERROR: prefix
                     if chunk.startswith("ERROR:"):

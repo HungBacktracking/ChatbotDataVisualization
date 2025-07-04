@@ -12,7 +12,7 @@ from app.exceptions.exception_handlers import register_exception_handlers
 from app.util.class_object import singleton
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),

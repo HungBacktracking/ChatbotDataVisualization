@@ -1,5 +1,4 @@
 from contextlib import asynccontextmanager
-import logging
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -8,17 +7,12 @@ from starlette.middleware.cors import CORSMiddleware
 from app.api.routes import routers
 from app.core.config import configs
 from app.core.containers.application_container import ApplicationContainer
+from app.core.logging_config import setup_logging
 from app.exceptions.exception_handlers import register_exception_handlers
 from app.util.class_object import singleton
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler("app.log")
-    ]
-)
+# Setup logging with UTF-8 support
+logger = setup_logging()
 
 
 @singleton
@@ -26,9 +20,9 @@ class AppCreator:
     def __init__(self):
         @asynccontextmanager
         async def lifespan(app: FastAPI):
-            logging.info("Starting application...")
+            logger.info("Starting application...")
             yield
-            logging.info("Application shutdown complete")
+            logger.info("Application shutdown complete")
 
         self.app = FastAPI(
             title=configs.PROJECT_NAME,

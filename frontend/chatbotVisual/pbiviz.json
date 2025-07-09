@@ -1,0 +1,28 @@
+{
+  "visual": {
+    "name": "chatbotVisual",
+    "displayName": "Chatbot Visual",
+    "guid": "chatbotVisual6F62CEA04C6E48689C09B7E1A9751D1F",
+    "visualClassName": "Visual",
+    "version": "1.0.0.0",
+    "description": "Giao diện chatbot để truy vấn và gợi ý biểu đồ dữ liệu Tiki ngay trong Power BI.",
+    "supportUrl": "https://ots.vn/support",
+    "gitHubUrl": ""
+  },
+
+  "author": {
+    "name": "Lê Chí Hiếu",
+    "email": "hieu.lc@ots.vn"
+  },
+
+  "apiVersion": "5.7.0",            
+  "assets": {
+    "icon": "assets/icon.png"
+  },
+
+  "capabilities": "capabilities.json",
+  "style": "style/visual.less",
+  "externalJS": [],
+  "dependencies": null,
+  "stringResources": []
+}

@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import routers
 from app.core.config import configs
@@ -10,6 +12,16 @@ from app.core.containers.application_container import ApplicationContainer
 from app.core.logging_config import setup_logging
 from app.exceptions.exception_handlers import register_exception_handlers
 from app.util.class_object import singleton
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Setup logging with UTF-8 support
 logger = setup_logging()
